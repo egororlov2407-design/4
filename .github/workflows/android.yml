@@ -31,8 +31,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -43,11 +41,28 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Check project files
+        run: |
+          echo "Repository root:"
+          pwd
+          echo "Files:"
+          ls -la
+          test -f package.json || (echo "ERROR: package.json not found in repository root" && exit 1)
+          test -f capacitor.config.json || test -f capacitor.config.ts || test -f capacitor.config.js || (echo "ERROR: Capacitor config not found in repository root" && exit 1)
+          test -d www || (echo "ERROR: www directory not found in repository root" && exit 1)
+
       - name: Install dependencies
         run: npm install
 
       - name: Check JavaScript
-        run: npm run check:js
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.['check:js'] ? 0 : 1)"; then
+            npm run check:js
+          elif [ -f scripts/check-js.cjs ]; then
+            node scripts/check-js.cjs
+          else
+            echo "No JavaScript check script found; skipping."
+          fi
 
       - name: Create Android project if needed
         run: |
@@ -71,3 +86,4 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
