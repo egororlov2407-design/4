@@ -1,4 +1,5 @@
 
+
 name: Build Activity Android APK
 
 on:
@@ -12,6 +13,8 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'capacitor.config.json'
+      - 'capacitor.config.ts'
+      - 'capacitor.config.js'
       - 'android/**'
       - '.github/workflows/android.yml'
 
@@ -30,7 +33,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '22'
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -39,17 +42,32 @@ jobs:
           java-version: '21'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
 
       - name: Check project files
         run: |
           echo "Repository root:"
           pwd
-          echo "Files:"
           ls -la
-          test -f package.json || (echo "ERROR: package.json not found in repository root" && exit 1)
-          test -f capacitor.config.json || test -f capacitor.config.ts || test -f capacitor.config.js || (echo "ERROR: Capacitor config not found in repository root" && exit 1)
-          test -d www || (echo "ERROR: www directory not found in repository root" && exit 1)
+
+          test -f package.json || {
+            echo "ERROR: package.json not found in repository root"
+            exit 1
+          }
+
+          test -d www || {
+            echo "ERROR: www directory not found in repository root"
+            exit 1
+          }
+
+          test -f capacitor.config.json || \
+          test -f capacitor.config.ts || \
+          test -f capacitor.config.js || {
+            echo "ERROR: Capacitor config not found"
+            exit 1
+          }
 
       - name: Install dependencies
         run: npm install
