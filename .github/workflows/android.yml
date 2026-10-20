@@ -8,14 +8,7 @@ on:
     branches:
       - main
     paths:
-      - 'www/**'
-      - 'scripts/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'capacitor.config.json'
-      - 'capacitor.config.ts'
-      - 'capacitor.config.js'
-      - 'android/**'
+      - 'Activity_3_1_Android_Source.zip'
       - '.github/workflows/android.yml'
 
 permissions:
@@ -23,12 +16,43 @@ permissions:
 
 jobs:
   build:
-    name: Build Debug APK
+    name: Build Activity Android APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Extract Activity source
+        run: |
+          if [ ! -f Activity_3_1_Android_Source.zip ]; then
+            echo "ERROR: Activity_3_1_Android_Source.zip not found"
+            exit 1
+          fi
+
+          mkdir -p source
+          unzip -o Activity_3_1_Android_Source.zip -d source
+
+          echo "Extracted files:"
+          ls -la source
+
+          if [ ! -f source/package.json ]; then
+            echo "Searching for package.json..."
+            find source -name package.json -print
+          fi
+
+          PROJECT_DIR="source"
+
+          if [ ! -f "$PROJECT_DIR/package.json" ]; then
+            PROJECT_DIR="$(dirname "$(find source -name package.json -print -quit)")"
+          fi
+
+          if [ ! -f "$PROJECT_DIR/package.json" ]; then
+            echo "ERROR: package.json not found in archive"
+            exit 1
+          fi
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -46,33 +70,12 @@ jobs:
         with:
           packages: 'platform-tools'
 
-      - name: Check project files
-        run: |
-          echo "Repository root:"
-          pwd
-          ls -la
-
-          test -f package.json || {
-            echo "ERROR: package.json not found in repository root"
-            exit 1
-          }
-
-          test -d www || {
-            echo "ERROR: www directory not found in repository root"
-            exit 1
-          }
-
-          test -f capacitor.config.json || \
-          test -f capacitor.config.ts || \
-          test -f capacitor.config.js || {
-            echo "ERROR: Capacitor config not found"
-            exit 1
-          }
-
       - name: Install dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
         run: npm install
 
       - name: Check JavaScript
+        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           if node -e "process.exit(require('./package.json').scripts?.['check:js'] ? 0 : 1)"; then
             npm run check:js
@@ -83,15 +86,18 @@ jobs:
           fi
 
       - name: Create Android project if needed
+        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           if [ ! -f android/gradlew ]; then
             npx cap add android
           fi
 
       - name: Sync Capacitor
+        working-directory: ${{ env.PROJECT_DIR }}
         run: npx cap sync android
 
       - name: Build APK
+        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           cd android
           chmod +x gradlew
@@ -100,8 +106,8 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Activity-Android-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: Activity-3.1-Android-APK
+          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
 
